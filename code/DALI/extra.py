@@ -1,4 +1,4 @@
-""" Extra function: annot2vector, annot2frames, unroll and roll.
+"""Extra function: annot2vector, annot2frames, unroll and roll.
 
 Transformating the annots a song into different representations.
 They are disconnected to the class because they can be
@@ -8,9 +8,10 @@ to a vector representation.
 
 GABRIEL MESEGUER-BROCAL 2018
 """
+
 import copy
 import numpy as np
-from .download import (audio_from_url, get_my_ydl)
+from .download import audio_from_url, get_my_ydl, audio_from_url_list
 from . import utilities as ut
 
 
@@ -18,12 +19,12 @@ def unroll(annot):
     """Unrolls the hierarchical information into paragraphs, lines, words
     keeping the relations with the key 'index.'
     """
-    tmp = copy.deepcopy(annot['hierarchical'])
+    tmp = copy.deepcopy(annot["hierarchical"])
     p, _ = ut.unroll(tmp, depth=0, output=[])
     l, _ = ut.unroll(tmp, depth=1, output=[])
     w, _ = ut.unroll(tmp, depth=2, output=[])
     m, _ = ut.unroll(tmp, depth=3, output=[])
-    return {'paragraphs': p, 'lines': l, 'words': w, 'notes': m}
+    return {"paragraphs": p, "lines": l, "words": w, "notes": m}
 
 
 def roll(annot):
@@ -32,13 +33,13 @@ def roll(annot):
     Output example: [paragraph]['text'][line]['text'][word]['text'][notes]'
     """
     tmp = copy.deepcopy(annot)
-    output = ut.roll(tmp['notes'], tmp['words'])
-    output = ut.roll(output, tmp['lines'])
-    output = ut.roll(output, tmp['paragraphs'])
-    return {'hierarchical': output}
+    output = ut.roll(tmp["notes"], tmp["words"])
+    output = ut.roll(output, tmp["lines"])
+    output = ut.roll(output, tmp["paragraphs"])
+    return {"hierarchical": output}
 
 
-def annot2frames(annot, time_r, type='horizontal', depth=3):
+def annot2frames(annot, time_r, type="horizontal", depth=3):
     """Transforms annot time into a discrete formart wrt a time_resolution.
 
     This function can be use with the whole annotation or with a subset.
@@ -59,22 +60,24 @@ def annot2frames(annot, time_r, type='horizontal', depth=3):
     output = []
     tmp = copy.deepcopy(annot)
     try:
-        if type == 'horizontal':
+        if type == "horizontal":
             output = ut.sample(tmp, time_r)
-        elif type == 'vertical':
-            vertical = [ut.sample(ut.unroll(tmp, [], depth=depth)[0], time_r)
-                        for i in range(depth+1)][::-1]
+        elif type == "vertical":
+            vertical = [
+                ut.sample(ut.unroll(tmp, [], depth=depth)[0], time_r)
+                for i in range(depth + 1)
+            ][::-1]
             for i in range(len(vertical[:-1])):
                 if i == 0:
-                    output = roll(vertical[i], vertical[i+1])
+                    output = roll(vertical[i], vertical[i + 1])
                 else:
-                    output = roll(output, vertical[i+1])
+                    output = roll(output, vertical[i + 1])
     except Exception as e:
-        print('ERROR: unknow type of annotations')
+        print("ERROR: unknow type of annotations")
     return output
 
 
-def annot2vector(annot, duration, time_r, type='voice'):
+def annot2vector(annot, duration, time_r, type="voice"):
     """Transforms the annotations into frame vector wrt a time resolution.
 
     Parameters
@@ -92,17 +95,17 @@ def annot2vector(annot, duration, time_r, type='voice'):
     """
     singal = np.zeros(int(duration / time_r))
     for note in annot:
-        b, e = note['time']
-        b = np.round(b/time_r).astype(int)
-        e = np.round(e/time_r).astype(int)
-        if type == 'voice':
-            singal[b:e+1] = 1
-        if type == 'melody':
-            singal[b:e+1] = np.mean(note['freq'])
+        b, e = note["time"]
+        b = np.round(b / time_r).astype(int)
+        e = np.round(e / time_r).astype(int)
+        if type == "voice":
+            singal[b : e + 1] = 1
+        if type == "melody":
+            singal[b : e + 1] = np.mean(note["freq"])
     return singal
 
 
-def annot2vector_chopping(annot, dur, time_r, win_bin, hop_bin, type='voice'):
+def annot2vector_chopping(annot, dur, time_r, win_bin, hop_bin, type="voice"):
     """
     Transforms the annotations into a frame vector by:
 
@@ -131,11 +134,12 @@ def annot2vector_chopping(annot, dur, time_r, win_bin, hop_bin, type='voice'):
         singal = annot2vector(annot, dur, time_r, type)
         win = np.hanning(win_bin)
         win_sum = np.sum(win)
-        v = hop_bin*np.arange(int((len(singal)-win_bin)/hop_bin+1))
-        output = np.array([np.sum(win[::-1]*singal[i:i+win_bin])/win_sum
-                           for i in v]).T
+        v = hop_bin * np.arange(int((len(singal) - win_bin) / hop_bin + 1))
+        output = np.array(
+            [np.sum(win[::-1] * singal[i : i + win_bin]) / win_sum for i in v]
+        ).T
     except Exception as e:
-        print('ERROR: unknow type of annotations')
+        print("ERROR: unknow type of annotations")
     return output
 
 
@@ -156,13 +160,11 @@ def get_audio(dali_info, path_output, skip=[], keep=[]):
         keep : list
             list with the ids to be keeped.
     """
-    errors = []
     if len(keep) > 0:
-        for i in dali_info[1:]:
-            if i[0] in keep:
-                audio_from_url(i[-2], i[0], path_output, errors)
+        urls = [i[-2] for i in dali_info[1:] if i[0] in keep]
     else:
-        for i in dali_info[1:]:
-            if i[0] not in skip:
-                audio_from_url(i[-2], i[0], path_output, errors)
-    return errors
+        urls = [i[-2] for i in dali_info[1:] if i[0] not in skip]
+
+    audio_from_url_list([url for url in urls], path_output)
+
+    return
